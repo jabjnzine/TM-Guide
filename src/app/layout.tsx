@@ -3,6 +3,7 @@ import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 import { Noto_Sans_Thai } from 'next/font/google';
 import { cn } from '@/lib/utils';
+import ErudaInit from '@/components/dev/eruda-init';
 
 const notoSansThai = Noto_Sans_Thai({
   subsets: ['thai'],
@@ -37,6 +38,7 @@ export default function RootLayout({
   return (
     <html lang="th" className={cn('h-full', notoSansThai.variable)}>
       <body className="min-h-dvh flex flex-col antialiased">
+          <ErudaInit />
           {children}
           <Toaster position="top-center" richColors />
         </body>
