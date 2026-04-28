@@ -7,19 +7,38 @@ import { GuideRegisterLanding } from '@/components/register/guide-register-landi
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { pendingLineProfile, isAuthenticated } = useAuthStore();
+  const { pendingLineProfile, pendingGuide, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     if (isAuthenticated) {
       router.replace('/tours');
       return;
     }
-    if (!pendingLineProfile) {
+    // ต้องมีข้อมูลอย่างใดอย่างหนึ่ง
+    if (!pendingLineProfile && !pendingGuide) {
       router.replace('/');
     }
-  }, [isAuthenticated, pendingLineProfile, router]);
+  }, [isAuthenticated, pendingLineProfile, pendingGuide, router]);
 
-  if (!pendingLineProfile) return null;
+  // user ใหม่ ยังไม่ได้ลงทะเบียน
+  if (pendingLineProfile) {
+    return (
+      <GuideRegisterLanding
+        displayName={pendingLineProfile.displayName}
+        mode="register"
+      />
+    );
+  }
 
-  return <GuideRegisterLanding lineProfile={pendingLineProfile} />;
+  // ลงทะเบียนแล้ว รอ admin อนุมัติ
+  if (pendingGuide) {
+    return (
+      <GuideRegisterLanding
+        displayName={pendingGuide.nickname ?? pendingGuide.name}
+        mode="pending"
+      />
+    );
+  }
+
+  return null;
 }

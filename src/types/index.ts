@@ -24,6 +24,8 @@ export type RegisterPayload = {
 };
 
 // ─── Guide ───────────────────────────────────────────────
+export type GuideApproveStatus = 'pending' | 'approve' | 'reject';
+
 export type GuideProfile = {
   id: number;
   title: string;
@@ -34,6 +36,12 @@ export type GuideProfile = {
   line_id: string;
   image: string | null;
   license: { id: number; license_no: string } | null;
+  /** สถานะการอนุมัติข้อมูลทั่วไป */
+  status_general: GuideApproveStatus;
+  /** สถานะการอนุมัติข้อมูลมัคคุเทศก์ */
+  status_license: GuideApproveStatus | null;
+  /** สถานะการอนุมัติข้อมูลบัญชีธนาคาร */
+  status_bank: GuideApproveStatus | null;
 };
 
 // ─── Tour ────────────────────────────────────────────────

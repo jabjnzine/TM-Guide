@@ -28,7 +28,7 @@ function getLiffInitPromise(liffId: string): Promise<void> {
 
 export function useLiff() {
   const router = useRouter();
-  const { setAuth, setPendingLineProfile, isAuthenticated, pendingLineProfile } = useAuthStore();
+  const { setAuth, setPendingLineProfile, setPendingGuide, isAuthenticated, pendingLineProfile } = useAuthStore();
   const [state, setState] = useState<LiffState>({
     isLoading: true,
     isReady: false,
@@ -66,6 +66,14 @@ export function useLiff() {
           console.log('[API] /auth/liff →', data);
 
           if (data.registered) {
+            if (data.guide.status_general === 'pending') {
+              // ลงทะเบียนแล้วแต่รอ admin อนุมัติ — เก็บ guide data ไว้แสดง status
+              console.log('[LIFF] guide pending approval → /register');
+              setPendingGuide(data.guide);
+              setState({ isLoading: false, isReady: true, error: null });
+              router.replace('/register');
+              return;
+            }
             setAuth(data.guide, data.access_token);
             setState({ isLoading: false, isReady: true, error: null });
           } else {
