@@ -24,6 +24,7 @@ const MOCK_LINE_PROFILE = {
 };
 
 const SCREENS = [
+  { id: 'connection',   label: '🔌 Connection' },
   { id: 'intro',        label: 'เตรียมตัวสมัคร' },
   { id: 'pdpa',         label: 'ข้อมูลส่วนบุคคล' },
   { id: 'form',         label: '1. ข้อมูลทั่วไป' },
@@ -35,6 +36,160 @@ const SCREENS = [
 ] as const;
 
 type ScreenId = typeof SCREENS[number]['id'];
+
+// ─── Connection Check ───────────────────────────────────────
+
+type Status = 'idle' | 'loading' | 'ok' | 'error';
+
+type CheckItem = {
+  label: string;
+  status: Status;
+  detail: string;
+};
+
+function StatusBadge({ status }: { status: Status }) {
+  const map: Record<Status, { bg: string; text: string; label: string }> = {
+    idle:    { bg: 'bg-gray-100',   text: 'text-gray-500',  label: 'รอ' },
+    loading: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'กำลังเช็ค...' },
+    ok:      { bg: 'bg-green-100',  text: 'text-green-700', label: '✓ OK' },
+    error:   { bg: 'bg-red-100',    text: 'text-red-600',   label: '✗ Error' },
+  };
+  const s = map[status];
+  return (
+    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+      {s.label}
+    </span>
+  );
+}
+
+function ConnectionChecker() {
+  const [checks, setChecks] = useState<CheckItem[]>([
+    { label: 'LIFF ID ตั้งค่าแล้ว', status: 'idle', detail: '' },
+    { label: 'LIFF init (LINE SDK)', status: 'idle', detail: '' },
+    { label: 'LINE isLoggedIn',      status: 'idle', detail: '' },
+    { label: 'LINE Profile',         status: 'idle', detail: '' },
+    { label: 'API Health (/auth/liff)', status: 'idle', detail: '' },
+  ]);
+  const [running, setRunning] = useState(false);
+
+  function update(index: number, patch: Partial<CheckItem>) {
+    setChecks((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+  }
+
+  async function runChecks() {
+    setRunning(true);
+    setChecks((prev) => prev.map((c) => ({ ...c, status: 'idle', detail: '' })));
+
+    // 1. LIFF ID
+    const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+    if (!liffId) {
+      update(0, { status: 'error', detail: 'NEXT_PUBLIC_LIFF_ID ไม่ได้ตั้งค่า' });
+      setRunning(false);
+      return;
+    }
+    update(0, { status: 'ok', detail: liffId });
+
+    // 2. LIFF init
+    update(1, { status: 'loading', detail: '' });
+    try {
+      const liff = (await import('@line/liff')).default;
+      await liff.init({ liffId });
+      update(1, { status: 'ok', detail: 'init สำเร็จ' });
+
+      // 3. isLoggedIn
+      const loggedIn = liff.isLoggedIn();
+      update(2, {
+        status: loggedIn ? 'ok' : 'error',
+        detail: loggedIn ? 'true' : 'false — ยังไม่ได้ login LINE',
+      });
+
+      // 4. LINE Profile
+      if (loggedIn) {
+        update(3, { status: 'loading' });
+        try {
+          const profile = await liff.getProfile();
+          update(3, {
+            status: 'ok',
+            detail: `${profile.displayName} (${profile.userId.slice(0, 10)}...)`,
+          });
+
+          // 5. API
+          update(4, { status: 'loading' });
+          try {
+            const token = liff.getAccessToken();
+            const res = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/auth/liff`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-tenant-id': process.env.NEXT_PUBLIC_TENANT_ID ?? '',
+                },
+                body: JSON.stringify({ line_access_token: token }),
+              },
+            );
+            const json = await res.json();
+            if (res.ok) {
+              update(4, {
+                status: 'ok',
+                detail: json.registered ? `registered ✓ (${json.guide?.name ?? ''})` : 'not registered (ยังไม่สมัคร)',
+              });
+            } else {
+              update(4, { status: 'error', detail: `${res.status} — ${JSON.stringify(json)}` });
+            }
+          } catch (e) {
+            update(4, { status: 'error', detail: String(e) });
+          }
+        } catch (e) {
+          update(3, { status: 'error', detail: String(e) });
+        }
+      } else {
+        update(3, { status: 'idle', detail: 'ข้ามเพราะยังไม่ login' });
+        update(4, { status: 'idle', detail: 'ข้ามเพราะยังไม่ login' });
+      }
+    } catch (e) {
+      update(1, { status: 'error', detail: String(e) });
+    }
+
+    setRunning(false);
+  }
+
+  return (
+    <div className="min-h-dvh bg-[#f5f7fa] p-4 flex flex-col gap-4">
+      <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <h2 className="font-bold text-[#1b3045] text-base mb-1">Connection Check</h2>
+        <p className="text-xs text-[#667085]">
+          ตรวจสอบว่า LINE LIFF และ API เชื่อมต่อได้หรือไม่
+        </p>
+        <p className="text-xs text-[#aaa] mt-1 break-all">
+          API: {process.env.NEXT_PUBLIC_API_URL}
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-100">
+        {checks.map((c, i) => (
+          <div key={i} className="px-4 py-3 flex flex-col gap-0.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-[#1b3045]">{c.label}</span>
+              <StatusBadge status={c.status} />
+            </div>
+            {c.detail && (
+              <p className="text-xs text-[#667085] break-all">{c.detail}</p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={runChecks}
+        disabled={running}
+        className="w-full py-3 rounded-2xl bg-[#06C755] text-white font-semibold text-sm disabled:opacity-50"
+      >
+        {running ? 'กำลังตรวจสอบ...' : 'เริ่มตรวจสอบ'}
+      </button>
+    </div>
+  );
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -165,6 +320,7 @@ function DevPageContent() {
       {/* Phone frame */}
       <div className="flex items-start justify-center pt-14 pb-8 px-4">
         <div className="w-[390px] min-h-dvh bg-white shadow-2xl rounded-3xl overflow-hidden mt-2">
+          {screen === 'connection'   && <ConnectionChecker />}
           {screen === 'intro'       && <RegisterIntroScreen lineProfile={MOCK_LINE_PROFILE} />}
           {screen === 'pdpa'        && <RegisterPdpaScreen />}
           {screen === 'form'        && <RegisterFormScreen lineProfile={MOCK_LINE_PROFILE} />}
