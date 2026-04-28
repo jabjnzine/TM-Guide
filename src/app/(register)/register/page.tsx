@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { useEffect } from 'react';
-import { RegisterIntroScreen } from '@/components/register/register-intro-screen';
+import { GuideRegisterLanding } from '@/components/register/guide-register-landing';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -21,5 +21,5 @@ export default function RegisterPage() {
 
   if (!pendingLineProfile) return null;
 
-  return <RegisterIntroScreen lineProfile={pendingLineProfile} />;
+  return <GuideRegisterLanding lineProfile={pendingLineProfile} />;
 }
