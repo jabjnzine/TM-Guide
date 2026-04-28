@@ -36,9 +36,7 @@ const SCREENS = [
 
 type ScreenId = typeof SCREENS[number]['id'];
 
-if (process.env.NODE_ENV === 'production') {
-  throw new Error('Dev page is not available in production');
-}
+export const dynamic = 'force-dynamic';
 
 // ─── BottomSheet Demo ──────────────────────────────────────
 
@@ -140,7 +138,7 @@ function BottomSheetDemo() {
 
 // ─── Dev Page ─────────────────────────────────────────────
 
-export default function DevPage() {
+function DevPageContent() {
   const [screen, setScreen] = useState<ScreenId>('intro');
 
   return (
@@ -198,4 +196,11 @@ export default function DevPage() {
       </div>
     </div>
   );
+}
+
+export default function DevPage() {
+  if (process.env.NODE_ENV === 'production') {
+    return <div className="p-8 text-center text-red-500">ไม่สามารถเข้าถึงหน้านี้ใน production ได้</div>;
+  }
+  return <DevPageContent />;
 }
