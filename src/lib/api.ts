@@ -35,12 +35,16 @@ api.interceptors.response.use(
 
 // ─── API functions ───────────────────────────────────────
 
+export type LiffLoginResponse =
+  | { registered: true; access_token: string; guide: import('@/types').GuideProfile }
+  | { registered: false; line_profile: import('@/types').LineProfile };
+
 export const authApi = {
   liffLogin: (lineAccessToken: string) =>
-    api.post<{ access_token: string; guide: import('@/types').GuideProfile }>(
-      '/auth/liff',
-      { line_access_token: lineAccessToken },
-    ),
+    api.post<LiffLoginResponse>('/auth/liff', { line_access_token: lineAccessToken }),
+
+  liffRegister: (payload: import('@/types').RegisterPayload) =>
+    api.post<{ message: string }>('/auth/liff/register', payload),
 };
 
 export const guidePortalApi = {

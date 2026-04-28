@@ -1,3 +1,28 @@
+// ─── LINE ────────────────────────────────────────────────
+export type LineProfile = {
+  userId: string;
+  displayName: string;
+  pictureUrl: string;
+};
+
+// ─── Registration ─────────────────────────────────────────
+export type RegisterPayload = {
+  line_id: string;
+  title: string;
+  name: string;
+  nickname?: string;
+  phone: string;
+  national_id: string;
+  birth_date?: string;
+  national_id_image?: string;
+  line_display_name: string;
+  // Step 2 — ข้อมูลมัคคุเทศก์
+  licence_no?: string;
+  licence_expiry?: string;
+  languages?: string[];
+  work_areas?: string[];
+};
+
 // ─── Guide ───────────────────────────────────────────────
 export type GuideProfile = {
   id: number;

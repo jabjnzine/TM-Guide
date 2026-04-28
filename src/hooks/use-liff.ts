@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { authApi } from '@/lib/api';
 
@@ -11,7 +12,8 @@ type LiffState = {
 };
 
 export function useLiff() {
-  const { setAuth, isAuthenticated } = useAuthStore();
+  const router = useRouter();
+  const { setAuth, setPendingLineProfile, isAuthenticated, pendingLineProfile } = useAuthStore();
   const [state, setState] = useState<LiffState>({
     isLoading: true,
     isReady: false,
@@ -35,12 +37,25 @@ export function useLiff() {
         return;
       }
 
-      if (!isAuthenticated) {
+      if (!isAuthenticated && !pendingLineProfile) {
         const lineAccessToken = liff.getAccessToken();
         if (!lineAccessToken) throw new Error('ไม่สามารถดึง LINE access token ได้');
 
         const { data } = await authApi.liffLogin(lineAccessToken);
-        setAuth(data.guide, data.access_token);
+
+        if (data.registered) {
+          setAuth(data.guide, data.access_token);
+          setState({ isLoading: false, isReady: true, error: null });
+        } else {
+          setPendingLineProfile(data.line_profile);
+          setState({ isLoading: false, isReady: true, error: null });
+          router.replace('/register');
+          return;
+        }
+      } else if (pendingLineProfile && !isAuthenticated) {
+        setState({ isLoading: false, isReady: true, error: null });
+        router.replace('/register');
+        return;
       }
 
       setState({ isLoading: false, isReady: true, error: null });
@@ -49,7 +64,7 @@ export function useLiff() {
         err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการเชื่อมต่อ LINE';
       setState({ isLoading: false, isReady: false, error: message });
     }
-  }, [isAuthenticated, setAuth]);
+  }, [isAuthenticated, pendingLineProfile, setAuth, setPendingLineProfile, router]);
 
   useEffect(() => {
     init();
