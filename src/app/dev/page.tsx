@@ -199,7 +199,11 @@ function DevPageContent() {
 }
 
 export default function DevPage() {
-  if (process.env.NODE_ENV === 'production') {
+  const allowed =
+    process.env.NODE_ENV !== 'production' ||
+    process.env.NEXT_PUBLIC_DEV_PAGE === 'true';
+
+  if (!allowed) {
     return <div className="p-8 text-center text-red-500">ไม่สามารถเข้าถึงหน้านี้ใน production ได้</div>;
   }
   return <DevPageContent />;

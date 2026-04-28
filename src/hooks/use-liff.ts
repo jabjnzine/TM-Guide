@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { authApi } from '@/lib/api';
@@ -11,6 +11,21 @@ type LiffState = {
   error: string | null;
 };
 
+/**
+ * liff.init() ต้องเรียกแค่ครั้งเดียวต่อ browser session
+ * module-level singleton ป้องกัน re-init เมื่อ component unmount/remount
+ */
+let liffInitPromise: Promise<void> | null = null;
+
+function getLiffInitPromise(liffId: string): Promise<void> {
+  if (!liffInitPromise) {
+    liffInitPromise = import('@line/liff').then(({ default: liff }) =>
+      liff.init({ liffId }),
+    );
+  }
+  return liffInitPromise;
+}
+
 export function useLiff() {
   const router = useRouter();
   const { setAuth, setPendingLineProfile, isAuthenticated, pendingLineProfile } = useAuthStore();
@@ -19,56 +34,67 @@ export function useLiff() {
     isReady: false,
     error: null,
   });
-  const initialized = useRef(false);
+  const ran = useRef(false);
 
-  const init = useCallback(async () => {
-    if (initialized.current) return;
-    initialized.current = true;
+  useEffect(() => {
+    if (ran.current) return;
+    ran.current = true;
 
-    try {
-      const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
-      if (!liffId) throw new Error('NEXT_PUBLIC_LIFF_ID is not set');
+    async function init() {
+      try {
+        const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+        if (!liffId) throw new Error('NEXT_PUBLIC_LIFF_ID is not set');
 
-      const liff = (await import('@line/liff')).default;
-      await liff.init({ liffId });
+        console.log('[LIFF] init — liffId:', liffId);
+        const liff = (await import('@line/liff')).default;
 
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
-      }
+        await getLiffInitPromise(liffId);
+        console.log('[LIFF] ready — isLoggedIn:', liff.isLoggedIn());
 
-      if (!isAuthenticated && !pendingLineProfile) {
-        const lineAccessToken = liff.getAccessToken();
-        if (!lineAccessToken) throw new Error('ไม่สามารถดึง LINE access token ได้');
+        if (!liff.isLoggedIn()) {
+          console.log('[LIFF] not logged in → liff.login()');
+          liff.login();
+          return;
+        }
 
-        const { data } = await authApi.liffLogin(lineAccessToken);
+        if (!isAuthenticated && !pendingLineProfile) {
+          const lineAccessToken = liff.getAccessToken();
+          if (!lineAccessToken) throw new Error('ไม่สามารถดึง LINE access token ได้');
 
-        if (data.registered) {
-          setAuth(data.guide, data.access_token);
-          setState({ isLoading: false, isReady: true, error: null });
-        } else {
-          setPendingLineProfile(data.line_profile);
+          console.log('[API] POST /auth/liff ...');
+          const { data } = await authApi.liffLogin(lineAccessToken);
+          console.log('[API] /auth/liff →', data);
+
+          if (data.registered) {
+            setAuth(data.guide, data.access_token);
+            setState({ isLoading: false, isReady: true, error: null });
+          } else {
+            setPendingLineProfile(data.line_profile);
+            setState({ isLoading: false, isReady: true, error: null });
+            router.replace('/register');
+          }
+          return;
+        }
+
+        if (pendingLineProfile && !isAuthenticated) {
           setState({ isLoading: false, isReady: true, error: null });
           router.replace('/register');
           return;
         }
-      } else if (pendingLineProfile && !isAuthenticated) {
+
+        console.log('[LIFF] already authenticated — skip API call');
         setState({ isLoading: false, isReady: true, error: null });
-        router.replace('/register');
-        return;
+      } catch (err: unknown) {
+        console.error('[LIFF] error:', err);
+        const message =
+          err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการเชื่อมต่อ LINE';
+        setState({ isLoading: false, isReady: false, error: message });
       }
-
-      setState({ isLoading: false, isReady: true, error: null });
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการเชื่อมต่อ LINE';
-      setState({ isLoading: false, isReady: false, error: message });
     }
-  }, [isAuthenticated, pendingLineProfile, setAuth, setPendingLineProfile, router]);
 
-  useEffect(() => {
     init();
-  }, [init]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return state;
 }
