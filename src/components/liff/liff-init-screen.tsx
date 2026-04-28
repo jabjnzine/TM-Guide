@@ -3,16 +3,20 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiff } from '@/hooks/use-liff';
+import { useAuthStore } from '@/store/auth.store';
 
 export default function LiffInitScreen() {
   const { isLoading, isReady, error } = useLiff();
+  const { isAuthenticated } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
-    if (isReady) {
+    // redirect /tours เฉพาะเมื่อ authenticated แล้วเท่านั้น
+    // กรณี not registered useLiff จะ redirect /register เองแล้ว
+    if (isReady && isAuthenticated) {
       router.replace('/tours');
     }
-  }, [isReady, router]);
+  }, [isReady, isAuthenticated, router]);
 
   if (error) {
     return (
