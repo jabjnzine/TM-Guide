@@ -10,15 +10,17 @@ export default function GuideLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, _hasHydrated } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (_hasHydrated && !isAuthenticated) {
       router.replace('/');
     }
-  }, [isAuthenticated, router]);
+  }, [_hasHydrated, isAuthenticated, router]);
 
+  // รอให้ zustand persist โหลดข้อมูลจาก localStorage ก่อนตัดสินใจ redirect
+  if (!_hasHydrated) return null;
   if (!isAuthenticated) return null;
 
   return (

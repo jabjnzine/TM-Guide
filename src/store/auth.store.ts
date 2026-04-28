@@ -10,10 +10,13 @@ type AuthState = {
   isAuthenticated: boolean;
   /** LINE profile สำหรับไกด์ที่ยังไม่ได้ลงทะเบียน */
   pendingLineProfile: LineProfile | null;
+  /** true หลังจาก zustand persist โหลดข้อมูลจาก localStorage เสร็จแล้ว */
+  _hasHydrated: boolean;
   setAuth: (guide: GuideProfile, token: string) => void;
   setPendingLineProfile: (profile: LineProfile) => void;
   clearPendingLineProfile: () => void;
   clear: () => void;
+  _setHasHydrated: (v: boolean) => void;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -23,6 +26,7 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       isAuthenticated: false,
       pendingLineProfile: null,
+      _hasHydrated: false,
       setAuth: (guide, accessToken) =>
         set({ guide, accessToken, isAuthenticated: true, pendingLineProfile: null }),
       setPendingLineProfile: (profile) =>
@@ -31,6 +35,7 @@ export const useAuthStore = create<AuthState>()(
         set({ pendingLineProfile: null }),
       clear: () =>
         set({ guide: null, accessToken: null, isAuthenticated: false, pendingLineProfile: null }),
+      _setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
     {
       name: 'guide-auth',
@@ -40,6 +45,9 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         pendingLineProfile: state.pendingLineProfile,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?._setHasHydrated(true);
+      },
     },
   ),
 );
